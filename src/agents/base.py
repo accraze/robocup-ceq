@@ -1,3 +1,6 @@
+from src.settings import NORTH, SOUTH, EAST, WEST, FIELD_MAX_Y, FIELD_MAX_X
+
+
 class Agent:
     def __init__(self, x, y, possession, name):
         self.init_x = self.x = x
@@ -13,11 +16,11 @@ class Agent:
     def move(self, action):
         if action == NORTH and self.y > 0:
             self.y -= 1
-        elif action == SOUTH and self.y < FIELD_DIM_Y - 1:
+        elif action == SOUTH and self.y < FIELD_MAX_Y - 1:
             self.y += 1
         elif action == WEST and self.x > 0:
             self.x -= 1
-        elif action == EAST and self.x < FIELD_DIM_X - 1:
+        elif action == EAST and self.x < FIELD_MAX_X - 1:
             self.x += 1
 
     def set_possession(self, possession):

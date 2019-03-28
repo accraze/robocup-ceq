@@ -4,5 +4,5 @@ WEST = 2
 EAST = 3
 STICK = 4
 
-
-
+FIELD_MAX_X = 4
+FIELD_MAX_Y = 2
