@@ -1,75 +1,70 @@
 import numpy as np
-from src.agents.base import Agent
 
 
-class QLearner(Agent):
+class QLearner:
 
-    def __init__(self, player_info, num_states, num_actions,
-                 lr=1.0, lr_decay=0.999997, lr_min=0.0,
-                 eps=0.75, eps_decay=0.99995, eps_min=0.01,
-                 gamma=0.9):
-        self.state = 0
-        self.action = 0
-        self.num_states = num_states
-        self.num_actions = num_actions
-
-        self.Q = self._init_q_table()
-        self.alpha = lr
-        self.alpha_decay = lr_decay
-        self.alpha_min = lr_min
-        self.eps = eps
-        self.eps_decay = eps_decay
-        self.eps_min = eps_min
+    def __init__(self, states, actions, rewards, eps=.5, gamma=0.99, alpha=.5,
+                 decay=.001, n_iterations=10000, timeout=25):
+        self.states = states
+        self.actions = actions
+        self.rewards = rewards
+        self.e = eps
         self.gamma = gamma
-        self.algo_name = 'Q-Learner'
-        x, y, has_ball, name = player_info
-        super(QLearner, self).__init__(x, y, has_ball, name)
+        self.alpha = alpha
+        self.decay = decay
+        self.n_iter = n_iterations
+        self.timeout = timeout
+        self.e_decayrate = self._set_decay_rate(self.e)
+        self.alpha_decayrate = self._set_decay_rate(self.alpha)
 
-    def _init_q_table(self):
-        # Initialized to [-1, 1) uniformly at random
-        return np.random.randn(self.num_states, self.num_actions)
-        # Initialized to [0, 1) uniformly at random
-        # return np.random.random((self.num_states, self.num_actions))
-        # Initialized to 0
-        # return np.zeros((self.num_states, self.num_actions))
+    def run(self, transition):
+        self.Q1 = np.random.rand(len(self.states), len(self.actions))
+        self.Q2 = np.random.rand(len(self.states), len(self.actions))
+        s0 = 71  # Always start in same position
+        err = []
+        for T in range(self.n_iter):
+            s = s0  # init episode to s0
+            q_sa = self.Q1[s0, 4]
 
-    def query_initial(self, state):
-        if np.random.random() < self.eps:
-            action = np.random.choice(self.num_actions)
-            self.eps = max(
-                self.eps * self.eps_decay, self.eps_min)
-        else:
-            action = np.argmax(self.Q[state])
+            for t in range(self.timeout):
+                choice = np.random.rand()
+                if choice <= self.e:
+                    a1 = self.actions[np.random.randint(5)]
+                    a2 = self.actions[np.random.randint(5)]
+                else:
 
-        # Update current state and action
-        self.state = state
-        self.action = action
+                    # max(Q1[s]).astype(int) -4, 1, 0
+                    a1 = self.actions[np.argmax(self.Q1[s])]
+                    a2 = self.actions[np.argmax(self.Q2[s])]
 
-        return action
+                a = [a1, a2]  # action matrix
+                # query transition model to obtain s', returns an index value
+                s_prime = transition(s, a)
 
-    def query(self, s, a, o, sp, r, op_Q):
-        delta_Q = self.update_Q((s, a, sp, r))
+                # query the reward model to obtain r
+                r1 = self.rewards[s_prime, 0]
+                r2 = self.rewards[s_prime, 1]
 
-        if np.random.random() < self.eps:
-            action = np.random.choice(self.num_actions)
-            self.eps = max(
-                self.eps * self.eps_decay, self.eps_min)
-        else:
-            action = np.argmax(self.Q[sp])
+                self.Q1[s, a1] = self.Q1[s, a1] + self.alpha * \
+                    (r1 + self.gamma *
+                     self.Q1[s_prime, :].max() - self.Q1[s, a1])
+                self.Q2[s, a2] = self.Q2[s, a2] + self.alpha * \
+                    (r2 + self.gamma *
+                     self.Q2[s_prime, :].max() - self.Q2[s, a2])
+                # update s
+                s = s_prime
 
-        # Update current state and action
-        self.state = sp
-        self.action = action
+                # terminate when a goal is made
+                if r1 != 0 or r2 != 0:
+                    break
+            # Decay Alpha
+            self.e = self.e - self.e_decayrate
+            if self.alpha > .001:
+                self.alpha = self.alpha - self.alpha_decayrate
 
-        return action, delta_Q
+            err.append(np.abs(self.Q1[s0, 4] - q_sa))
+            print (T)
+        return err, self.Q1
 
-    def update_Q(self, experience_replay):
-        s, a, sp, r = experience_replay
-        action = np.argmax(self.Q[s])
-        prev_Q = self.Q[s, a]
-        updated_Q = (1 - self.alpha) * prev_Q + \
-            self.alpha * ((1 - self.gamma) * r + self.gamma *
-                          self.Q[sp, action] - prev_Q)
-        self.Q[s, a] = updated_Q
-        self.alpha = max(self.alpha * self.alpha_decay, self.alpha_min)
-        return abs(updated_Q - prev_Q)
+    def _set_decay_rate(self, hyperparam):
+        return (hyperparam - self.decay)/self.n_iter
