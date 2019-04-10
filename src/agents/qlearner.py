@@ -56,8 +56,10 @@ class QLearner:
                 break
 
     def _select_actions(self, state):
-        c = np.random.rand()
-        if c <= self.e:
+        """
+        Either take random action or best possible action.
+        """
+        if np.random.rand() <= self.e:
             p1_action = self.actions[np.random.randint(5)]
             p2_action = self.actions[np.random.randint(5)]
         else:
