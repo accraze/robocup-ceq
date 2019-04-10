@@ -1,7 +1,14 @@
 import numpy as np
 
+from src.settings import INITIAL_STATE
+
 
 class QLearner:
+
+    """
+    Base Q-Learner to show
+    that the multiagent setup will not converge.
+    """
 
     def __init__(self, states, actions, rewards, eps=.5, gamma=0.99, alpha=.5,
                  decay=.001, n_iterations=10000, timeout=25):
@@ -18,53 +25,65 @@ class QLearner:
         self.alpha_decayrate = self._set_decay_rate(self.alpha)
 
     def run(self, transition):
-        self.Q1 = np.random.rand(len(self.states), len(self.actions))
-        self.Q2 = np.random.rand(len(self.states), len(self.actions))
-        s0 = 71  # Always start in same position
-        err = []
-        for T in range(self.n_iter):
-            s = s0  # init episode to s0
-            q_sa = self.Q1[s0, 4]
-
-            for t in range(self.timeout):
-                choice = np.random.rand()
-                if choice <= self.e:
-                    a1 = self.actions[np.random.randint(5)]
-                    a2 = self.actions[np.random.randint(5)]
-                else:
-
-                    # max(Q1[s]).astype(int) -4, 1, 0
-                    a1 = self.actions[np.argmax(self.Q1[s])]
-                    a2 = self.actions[np.argmax(self.Q2[s])]
-
-                a = [a1, a2]  # action matrix
-                # query transition model to obtain s', returns an index value
-                s_prime = transition(s, a)
-
-                # query the reward model to obtain r
-                r1 = self.rewards[s_prime, 0]
-                r2 = self.rewards[s_prime, 1]
-
-                self.Q1[s, a1] = self.Q1[s, a1] + self.alpha * \
-                    (r1 + self.gamma *
-                     self.Q1[s_prime, :].max() - self.Q1[s, a1])
-                self.Q2[s, a2] = self.Q2[s, a2] + self.alpha * \
-                    (r2 + self.gamma *
-                     self.Q2[s_prime, :].max() - self.Q2[s, a2])
-                # update s
-                s = s_prime
-
-                # terminate when a goal is made
-                if r1 != 0 or r2 != 0:
-                    break
-            # Decay Alpha
-            self.e = self.e - self.e_decayrate
-            if self.alpha > .001:
-                self.alpha = self.alpha - self.alpha_decayrate
-
-            err.append(np.abs(self.Q1[s0, 4] - q_sa))
-            print (T)
-        return err, self.Q1
+        self.Q1 = self._init_q_table(self.states, self.actions)
+        self.Q2 = self._init_q_table(self.states, self.actions)
+        self.err = []
+        for episode_num in range(self.n_iter):
+            self._run_simulation(episode_num, INITIAL_STATE, transition)
+        return self.err, self.Q1
 
     def _set_decay_rate(self, hyperparam):
         return (hyperparam - self.decay)/self.n_iter
+
+    def _init_q_table(self, s, a):
+        return np.random.rand(len(s), len(a))
+
+    def _run_simulation(self, episode_num, initial_state, transition):
+        print(episode_num)
+        q_diff_base = self.Q1[initial_state, 4]
+        self._run_match(initial_state, transition)
+        self._decay_hyperparams()
+        self.err.append(np.abs(self.Q1[initial_state, 4] - q_diff_base))
+
+    def _run_match(self, state, transition):
+        for t in range(self.timeout):
+            actions = self._select_actions()
+            next_state = transition(state, actions)
+            rewards = self._query_rewards(next_state)
+            self._update_q_tables(state, actions, rewards, next_state)
+            state = next_state
+            if self._goal_is_made(rewards):
+                break
+
+    def _select_actions(self, state):
+        c = np.random.rand()
+        if c <= self.e:
+            p1_action = self.actions[np.random.randint(5)]
+            p2_action = self.actions[np.random.randint(5)]
+        else:
+            p1_action = self.actions[np.argmax(self.Q1[state])]
+            p2_action = self.actions[np.argmax(self.Q2[state])]
+
+        return [p1_action, p2_action]
+
+    def _goal_is_made(self, rewards):
+        return (rewards[0] != 0 or rewards[1] != 0)
+
+    def _query_rewards(self, state):
+        return self.rewards[state, 0], self.rewards[state, 1]
+
+    def _update_q_tables(self, state, actions, rewards, next_state):
+        self.Q1[state, actions[0]] = self.Q1[state, actions[0]] + \
+            self.alpha * (rewards[0] + self.gamma *
+                          self.Q1[next_state, :].max() -
+                          self.Q1[state, actions[0]])
+
+        self.Q2[state, actions[1]] = self.Q2[state, actions[1]] + \
+            self.alpha * (rewards[1] + self.gamma *
+                          self.Q2[next_state, :].max() -
+                          self.Q2[state, actions[1]])
+
+    def _decay_hyperparams(self):
+        self.e = self.e - self.e_decayrate
+        if self.alpha > .001:
+            self.alpha = self.alpha - self.alpha_decayrate
