@@ -1,6 +1,7 @@
 import numpy as np
 
 from src.settings import INITIAL_STATE
+from src.utils import lookup_vector_index
 
 from .qlearner import QLearner
 
@@ -45,7 +46,7 @@ class FriendQ(QLearner):
         return [p1_action, p2_action]
 
     def _update_q_tables(self, state, actions, rewards, next_state):
-        update_action = self._find_space_index(self.actions_space, actions)
+        update_action = lookup_vector_index(self.actions_space, actions)
         self.Q1[state, update_action] = self.Q1[state, update_action] + \
             self.alpha * \
             (rewards[0] + self.gamma * self.Q1[next_state, :].max() -
