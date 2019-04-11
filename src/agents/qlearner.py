@@ -10,11 +10,13 @@ class QLearner:
     that the multiagent setup will not converge.
     """
 
-    def __init__(self, states, actions, rewards, eps=.5, gamma=0.99, alpha=.5,
+    def __init__(self, environment, eps=.5, gamma=0.99, alpha=.5,
                  decay=.001, n_iterations=10000, timeout=25):
-        self.states = states
-        self.actions = actions
-        self.rewards = rewards
+        self.states = environment.states_space
+        self.actions = environment.actions
+        self.rewards = environment.rewards_space
+        self.actions_space = environment.actions_space
+        self.env = environment
         self.e = eps
         self.gamma = gamma
         self.alpha = alpha
@@ -24,12 +26,12 @@ class QLearner:
         self.e_decayrate = self._set_decay_rate(self.e)
         self.alpha_decayrate = self._set_decay_rate(self.alpha)
 
-    def run(self, transition):
+    def run(self):
         self.Q1 = self._init_q_table(self.states, self.actions)
         self.Q2 = self._init_q_table(self.states, self.actions)
         self.err = []
         for episode_num in range(self.n_iter):
-            self._run_simulation(episode_num, INITIAL_STATE, transition)
+            self._run_simulation(episode_num, INITIAL_STATE)
         return self.err, self.Q1
 
     def _set_decay_rate(self, hyperparam):
@@ -38,17 +40,17 @@ class QLearner:
     def _init_q_table(self, s, a):
         return np.random.rand(len(s), len(a))
 
-    def _run_simulation(self, episode_num, initial_state, transition):
+    def _run_simulation(self, episode_num, initial_state):
         print(episode_num)
         q_diff_base = self.Q1[initial_state, 4]
-        self._run_match(initial_state, transition)
+        self._run_match(initial_state)
         self._decay_hyperparams()
         self.err.append(np.abs(self.Q1[initial_state, 4] - q_diff_base))
 
-    def _run_match(self, state, transition):
+    def _run_match(self, state):
         for t in range(self.timeout):
-            actions = self._select_actions()
-            next_state = transition(state, actions)
+            actions = self._select_actions(state)
+            next_state = self.env.transition(state, actions)
             rewards = self._query_rewards(next_state)
             self._update_q_tables(state, actions, rewards, next_state)
             state = next_state
@@ -89,3 +91,14 @@ class QLearner:
         self.e = self.e - self.e_decayrate
         if self.alpha > .001:
             self.alpha = self.alpha - self.alpha_decayrate
+
+    def _a_equals(self, a, b):
+        return np.array_equal(a, b)
+
+    def _find_space_index(self, space, actions):
+        update_ = None
+        for i in range(space.shape[0]):
+            if self._a_equals(space[i], np.array(actions)):
+                update_action = i
+                break
+        return update_action

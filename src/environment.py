@@ -1,388 +1,106 @@
-class SoccerField:
-
-    def __init__(self, player1, player2):
-        self.player1 = player1
-        self.player2 = player2
-
-
+from itertools import permutations
 
 import numpy as np
-import matplotlib.pyplot as plt
+
+from src.settings import EAST, FIELD_MAX, FIELD_MIN, NORTH, PUT, SOUTH, WEST
+
+# actions = [NORTH, SOUTH, EAST, WEST, PUT]
+# actions = [-4,4,1,-1,0]
 
 
+class Environment:
 
-b = 2 # ball, A or B has it
-s = 8 # number of states
+    actions = [NORTH, SOUTH, EAST, WEST, PUT]
 
-# # ACTIONS:
-# N, S, E, W, P
-actions = [-4,4,1,-1,0]
-A = np.array([[-4, -4],
-       [ 4, -4],
-       [ 1, -4],
-       [-1, -4],
-       [ 0, -4],
-       [-4,  4],
-       [ 4,  4],
-       [ 1,  4],
-       [-1,  4],
-       [ 0,  4],
-       [-4,  1],
-       [ 4,  1],
-       [ 1,  1],
-       [-1,  1],
-       [ 0,  1],
-       [-4, -1],
-       [ 4, -1],
-       [ 1, -1],
-       [-1, -1],
-       [ 0, -1],
-       [-4,  0],
-       [ 4,  0],
-       [ 1,  0],
-       [-1,  0],
-       [ 0,  0]])
-S = np.array([[0, 0, 1],
-       [0, 0, 2],
-       [0, 0, 3],
-       [0, 0, 4],
-       [0, 0, 5],
-       [0, 0, 6],
-       [0, 0, 7],
-       [0, 1, 0],
-       [0, 1, 2],
-       [0, 1, 3],
-       [0, 1, 4],
-       [0, 1, 5],
-       [0, 1, 6],
-       [0, 1, 7],
-       [0, 2, 0],
-       [0, 2, 1],
-       [0, 2, 3],
-       [0, 2, 4],
-       [0, 2, 5],
-       [0, 2, 6],
-       [0, 2, 7],
-       [0, 3, 0],
-       [0, 3, 1],
-       [0, 3, 2],
-       [0, 3, 4],
-       [0, 3, 5],
-       [0, 3, 6],
-       [0, 3, 7],
-       [0, 4, 0],
-       [0, 4, 1],
-       [0, 4, 2],
-       [0, 4, 3],
-       [0, 4, 5],
-       [0, 4, 6],
-       [0, 4, 7],
-       [0, 5, 0],
-       [0, 5, 1],
-       [0, 5, 2],
-       [0, 5, 3],
-       [0, 5, 4],
-       [0, 5, 6],
-       [0, 5, 7],
-       [0, 6, 0],
-       [0, 6, 1],
-       [0, 6, 2],
-       [0, 6, 3],
-       [0, 6, 4],
-       [0, 6, 5],
-       [0, 6, 7],
-       [0, 7, 0],
-       [0, 7, 1],
-       [0, 7, 2],
-       [0, 7, 3],
-       [0, 7, 4],
-       [0, 7, 5],
-       [0, 7, 6],
-       [1, 0, 1],
-       [1, 0, 2],
-       [1, 0, 3],
-       [1, 0, 4],
-       [1, 0, 5],
-       [1, 0, 6],
-       [1, 0, 7],
-       [1, 1, 0],
-       [1, 1, 2],
-       [1, 1, 3],
-       [1, 1, 4],
-       [1, 1, 5],
-       [1, 1, 6],
-       [1, 1, 7],
-       [1, 2, 0],
-       [1, 2, 1],
-       [1, 2, 3],
-       [1, 2, 4],
-       [1, 2, 5],
-       [1, 2, 6],
-       [1, 2, 7],
-       [1, 3, 0],
-       [1, 3, 1],
-       [1, 3, 2],
-       [1, 3, 4],
-       [1, 3, 5],
-       [1, 3, 6],
-       [1, 3, 7],
-       [1, 4, 0],
-       [1, 4, 1],
-       [1, 4, 2],
-       [1, 4, 3],
-       [1, 4, 5],
-       [1, 4, 6],
-       [1, 4, 7],
-       [1, 5, 0],
-       [1, 5, 1],
-       [1, 5, 2],
-       [1, 5, 3],
-       [1, 5, 4],
-       [1, 5, 6],
-       [1, 5, 7],
-       [1, 6, 0],
-       [1, 6, 1],
-       [1, 6, 2],
-       [1, 6, 3],
-       [1, 6, 4],
-       [1, 6, 5],
-       [1, 6, 7],
-       [1, 7, 0],
-       [1, 7, 1],
-       [1, 7, 2],
-       [1, 7, 3],
-       [1, 7, 4],
-       [1, 7, 5],
-       [1, 7, 6]])
-R = np.array([[ 100., -100.],
-       [ 100., -100.],
-       [ 100., -100.],
-       [ 100., -100.],
-       [ 100., -100.],
-       [ 100., -100.],
-       [ 100., -100.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [-100.,  100.],
-       [-100.,  100.],
-       [-100.,  100.],
-       [-100.,  100.],
-       [-100.,  100.],
-       [-100.,  100.],
-       [-100.,  100.],
-       [ 100., -100.],
-       [ 100., -100.],
-       [ 100., -100.],
-       [ 100., -100.],
-       [ 100., -100.],
-       [ 100., -100.],
-       [ 100., -100.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [-100.,  100.],
-       [-100.,  100.],
-       [-100.,  100.],
-       [-100.,  100.],
-       [-100.,  100.],
-       [-100.,  100.],
-       [-100.,  100.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [-100.,  100.],
-       [ 100., -100.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [-100.,  100.],
-       [ 100., -100.],
-       [   0.,    0.],
-       [-100.,  100.],
-       [ 100., -100.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [-100.,  100.],
-       [ 100., -100.],
-       [   0.,    0.],
-       [-100.,  100.],
-       [ 100., -100.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [-100.,  100.],
-       [ 100., -100.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [ 100., -100.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [-100.,  100.],
-       [ 100., -100.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [-100.,  100.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [-100.,  100.],
-       [ 100., -100.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [-100.,  100.],
-       [ 100., -100.],
-       [   0.,    0.],
-       [-100.,  100.],
-       [ 100., -100.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [-100.,  100.],
-       [ 100., -100.],
-       [   0.,    0.],
-       [-100.,  100.],
-       [ 100., -100.],
-       [   0.,    0.],
-       [   0.,    0.],
-       [-100.,  100.],
-       [ 100., -100.],
-       [   0.,    0.],
-       [   0.,    0.]])
+    def __init__(self):
+        self.states_space = self._build_state_space()
+        self.actions_space = self._build_actions_space()
+        self.rewards_space = self._build_rewards_space()
 
-def transition(s, a):
-    ball, me, you = S[s]
+    def test_boundary(self, player, action):
+        if (player + action > FIELD_MAX or player + action < FIELD_MIN):
+            return 0
+        return action
 
-    # a1 = actions[a[0]]
-    # a2 = actions[a[1]]
-    #
-    # a = [a1, a2] # THIS IS DUMB... FIX IT
+    def transition(self, state, actions):
+        ball, player1, player2 = self.states_space[state]
+        actions[0] = self.test_boundary(player1, actions[0])
+        actions[1] = self.test_boundary(player2, actions[1])
+        p1_newstate = player1 + actions[0]
+        p2_newstate = player2 + actions[1]
 
-    # WE CANNOT GO OVERBOARD!!!
-    if (me + a[0] > 7 or me + a[0] < 0):
-        a[0] = 0
-    if (you + a[1] > 7 or you + a[1] < 0):
-        a[1] = 0
+        state_index = state
 
-    mynewstate = me + a[0]
-    yournewstate = me + a[1]
+        # GETTING NEW STATE
+        if p1_newstate == p2_newstate:
+            first_move = np.random.randint(2)
+            if first_move == 0:  # I'm first
+                if ball == 0:  # I have a ball
+                    # I move, you don't, ball is still mine
+                    next_state = [ball, player1 + actions[0], player2]
+                else:
+                    # i move, you bump into me, I get your ball
+                    next_state = [ball - 1, player1 + actions[0], player2]
+            else:  # you move first
+                if ball == 1:  # you have the ball
+                    # you move, you keep the ball, i stay
+                    next_state = [ball, player1, player2 + actions[1]]
+                else:  # i have the ball
+                    # you move, I bump into you, you get the ball
+                    next_state = [ball - 1, player1, player2 + actions[1]]
+        else:
+            next_state = [ball, player1 + actions[0], player2 + actions[1]]
 
-    s_ind = s
+        # GET INDEX OF S' STATE
+        for i in range(self.states_space.shape[0]):
+            if np.array_equal(self.states_space[i], np.array(next_state)):
+                state_index = i
 
-    # GETTING NEW STATE
-    if mynewstate == yournewstate:
-        first = np.random.randint(2)
-        if first == 0:  # I'm first
-            if ball == 0:  # I have a ball
-                s_prime = [ball, me + a[0], you]  # I move, you don't, ball is still mine
-            else:
-                s_prime = [ball - 1, me + a[0], you]  # i move, you bump into me, I get your ball
-        else:  # you move first
-            if ball == 1:  # you have the ball
-                s_prime = [ball, me, you + a[1]]  # you move, you keep the ball, i stay
-            else:  # i have the ball
-                s_prime = [ball - 1, me, you + a[1]]  # you move, I bump into you, you get the ball
-    else:
-        s_prime = [ball, me + a[0], you + a[1]]
+        return state_index
 
-    np_s_prime = np.array(s_prime)
-    # GET INDEX OF S' STATE
-    for i in range(S.shape[0]):
-        if np.array_equal(S[i], np_s_prime):
-            s_ind = i
+    def _build_state_space(self):
+        state_space = np.array([[0, 0, h] for h in range(1, 8)] +
+                               [[0, i, j] for i in range(1, 8)
+                                for j in range(0, 8) if j != i] +
+                               [[1, k, l] for k in range(0, 8)
+                                for l in range(0, 8) if k != l])
+        return state_space
 
-    return s_ind
+    def _build_actions_space(self):
+        actions_space = list(permutations(self.actions, 2))
+        for a in self.actions:
+            actions_space.append((a, a))
 
-def test_env():
-    world = np.zeros(8)
-    rewards = []
-    game_len = []
-    wins = []
-    for i in range(10):
-        # init the state uniformally over possible states
-        s = 71
+        return np.array(actions_space)
 
-        # run until game terminates or timeout is reached
-        for t in range(50):
-
-            # PRINTING THE WORLD
-            world.fill(0)
-            world[S[s][1]] = 999
-            world[S[s][2]] = 888
-            display = world.copy()
-            display = np.reshape(display, (2, 4))
-            print (display)
-
-            # choose random action get the set of possible s'
-            a_number = np.random.randint(25)
-
-            ball, me, you = S[s]
-            a = A[a_number]
-
-            # WE CANNOT GO OVERBOARD!!!
-            if (me + a[0] > 7 or me + a[0] < 0):
-                a[0] = 0
-            if (you + a[1] > 7 or you + a[1] < 0):
-                a[1] = 0
-
-            mynewstate = me+a[0]
-            yournewstate = me+a[1]
-
-            # GETTING NEW STATE
-            if mynewstate == yournewstate:
-                first = np.random.randint(2)
-                if first == 0: # I'm first
-                    if ball == 0: # I have a ball
-                        s_prime = [ball, me+a[0], you] # I move, you don't, ball is still mine
-                    else:
-                        s_prime = [ball-1, me + a[0], you] # i move, you bump into me, I get your ball
-                else: # you move first
-                    if ball == 1: # you have the ball
-                        s_prime = [ball, me, you+a[1]] # you move, you keep the ball, i stay
-                    else: # i have the ball
-                        s_prime = [ball-1, me, you+a[1]] # you move, I bump into you, you get the ball
-            else:
-                s_prime = [ball, me+a[0], you+a[1]]
-            #
-            # s_index = s_prime[0]*56 + s_prime[1]*7 + s_prime[2] - 1
-            np_s_prime = np.array(s_prime)
-
-            # print 'index for ', s_prime, ' is ', s_index
-
-
-            # GET INDEX OF S' STATE
-            for i in range(S.shape[0]):
-                if np.array_equal(S[i],np_s_prime):
-                    s = i
-                    # print 'index for ',s_prime, ' is ', i
-
-            #
-            # s = s_index
-
-            R_a = R[s, 0]
-            R_b = R[s, 1]
-
-
-
-            if (R_a != 0 or R_b != 0):
-                print ("DONE!!!")
-                break
-
-# test_env()
+    def _build_rewards_space(self):
+        p1_scores = [100., -100.]
+        no_scores = [0., 0.]
+        p2_scores = [-100., 100.]
+        rewards = np.array(
+            [p1_scores for x in range(7)] + [no_scores for x in range(14)] +
+            [p2_scores for x in range(7)] + [p1_scores for x in range(7)] +
+            [no_scores for x in range(14)] + [p2_scores for x in range(7)] +
+            [no_scores for x in range(2)] + [p2_scores for x in range(1)] +
+            [p1_scores for x in range(1)] + [no_scores for x in range(2)] +
+            [p2_scores for x in range(1)] + [p1_scores for x in range(1)] +
+            [no_scores for x in range(1)] + [p2_scores for x in range(1)] +
+            [p1_scores for x in range(1)] + [no_scores for x in range(2)] +
+            [p2_scores for x in range(1)] + [p1_scores for x in range(1)] +
+            [no_scores for x in range(1)] + [p2_scores for x in range(1)] +
+            [p1_scores for x in range(1)] + [no_scores for x in range(2)] +
+            [p2_scores for x in range(1)] + [p1_scores for x in range(1)] +
+            [no_scores for x in range(2)] + [p1_scores for x in range(1)] +
+            [no_scores for x in range(2)] + [p2_scores for x in range(1)] +
+            [p1_scores for x in range(1)] + [no_scores for x in range(2)] +
+            [p2_scores for x in range(1)] + [no_scores for x in range(2)] +
+            [p2_scores for x in range(1)] + [p1_scores for x in range(1)] +
+            [no_scores for x in range(2)] + [p2_scores for x in range(1)] +
+            [p1_scores for x in range(1)] + [no_scores for x in range(1)] +
+            [p2_scores for x in range(1)] + [p1_scores for x in range(1)] +
+            [no_scores for x in range(2)] + [p2_scores for x in range(1)] +
+            [p1_scores for x in range(1)] + [no_scores for x in range(1)] +
+            [p2_scores for x in range(1)] + [p1_scores for x in range(1)] +
+            [no_scores for x in range(2)] + [p2_scores for x in range(1)] +
+            [p1_scores for x in range(1)] + [no_scores for x in range(2)])
+        return rewards
