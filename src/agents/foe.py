@@ -72,15 +72,19 @@ class FoeQ(QLearner):
             + self.alpha * (rewards[0] + self.gamma * action_prob2.max())
 
     def get_min_q_val(self, q):
+        """Retrieve probablistic action space for Qs."""
         c = matrix(np.array(self._build_c(q)))
         G = matrix(np.negative(np.identity(TOTAL_ACTIONS)))
         h = matrix(np.array([0.] * TOTAL_ACTIONS))
         A = matrix([[1.] for x in range(TOTAL_ACTIONS)])
         b = matrix(np.array([1.]))
+        return self._solve_pas(c,G,h,A,b)
+
+    def _solve_pas(self,c,G,h,A,b):
+        """Compute probablistic action space using LP."""
         solvers.options['glpk'] = {'msg_lev': 'GLP_MSG_OFF'}  # cvxopt 1.1.8
         sol = solvers.lp(c, G, h, A, b, solver='glpk')['x']
-        prime_dist = [sol[x] for x in range(TOTAL_ACTIONS)]
-        return prime_dist
+        return [sol[x] for x in range(TOTAL_ACTIONS)]
 
     def _build_c(self, q):
         c_arr = []
