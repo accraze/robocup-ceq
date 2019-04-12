@@ -1,146 +1,97 @@
 import numpy as np
 from cvxopt import matrix, solvers
 
+from src.settings import INITIAL_STATE, PUT, SOUTH, TOTAL_ACTIONS, TOTAL_STATES
+from src.utils import lookup_vector_index
+
 from .qlearner import QLearner
 
 
 class CEQ(QLearner):
 
-    def run(self, transition, A):
-        s_test = 71  # [1,2,1]
+    def run(self):
+        self.Q1 = self._init_q_table()
+        self.Q2 = self._init_q_table()
+        self.err = []
 
         self.e_decayrate = self.e/(self.n_iter)
-        self.alpha_decayrate = self.alpha/self.n_iter
+        self.alpha_decayrate = self.alpha/(self.n_iter)
 
-        # initialize Q to zero over the states and joint action space
-        self.Q1 = np.random.rand(112, 25)
-        self.Q2 = np.random.rand(112, 25)
+        self.p1_pas = self._init_pas_table()
+        self.p2_pas = self._init_pas_table()
 
-        pi1 = np.ones((112, 25))
-        pi2 = np.ones((112, 25))
-        s0 = 71  # Alwats start at the same position, as in the pic
-        err = []  # delta in Q(s,a)
+        for episode_num in range(self.n_iter):
+            self._run_simulation(episode_num, INITIAL_STATE)
+        return self.err, self.Q1
 
-        for T in range(self.n_iter):
-            s = s0  # always initalize an episode in s0
-            q_sa = self.Q1[s_test, 21]
+    def _init_q_table(self):
+        """Init Q to zero over state and joint action spaces."""
+        return np.random.rand(TOTAL_STATES, TOTAL_ACTIONS * TOTAL_ACTIONS)
 
-            for t in range(self.timeout):
-                choice = np.random.rand()
-                # QtableV = Q1.sum()
+    def _init_pas_table(self):
+        return np.ones((TOTAL_STATES, TOTAL_ACTIONS * TOTAL_ACTIONS))
 
-                if choice <= self.e:
-                    a1 = np.random.randint(25)
-                    a2 = np.random.randint(25)
-                else:
+    def _run_simulation(self, episode_num, initial_state):
+        print(episode_num)
+        initial_action = lookup_vector_index(self.actions_space, [SOUTH, PUT])
+        q_diff_base = self.Q1[initial_state, initial_action]
+        self._run_match(initial_state)
+        self._decay_hyperparams()
+        self.err.append(
+            np.abs(self.Q1[initial_state, initial_action] - q_diff_base))
 
-                    # return an array of 25 elements with probs for A1 only
-                    prime1 = self.findMinQ(self.Q1[s], self.Q2[s])
-                    prime2 = self.findMinQ(self.Q2[s], self.Q1[s])
+    def _run_match(self, state):
+        for t in range(self.timeout):
+            actions = self._select_actions(state)
+            next_state = self.env.transition(state, actions)
+            rewards = self._query_rewards(next_state)
+            self._update_q_tables(state, actions, rewards, next_state)
+            state = next_state
+            if self._goal_is_made(rewards):
+                break
 
-                    # ideally, I would want this to be averaged
-                    pi1[s] = prime1
-                    pi2[s] = prime2
+    def _select_actions(self, state):
+        if np.random.rand() <= self.e:
+            p1_action = np.random.randint(TOTAL_ACTIONS*TOTAL_ACTIONS)
+            p2_action = np.random.randint(TOTAL_ACTIONS*TOTAL_ACTIONS)
+        else:
+            p1_action, p2_action = self._get_probablistic_actions(state)
+        return [p1_action, p2_action]
 
-                    # 25 prob valuea multiplied by anpther 25 Q values
-                    QwithProb1 = self.Q1[s]*prime1
-                    QwithProb2 = self.Q2[s]*prime2
+    def _get_probablistic_actions(self, state):
+        self.p1_pas[state] = self._get_min_q_val(state)
+        self.p2_pas[state] = self._get_min_q_val(state)
+        p1_idx = np.argmax(self.Q1[state]*self.p1_pas[state])
+        p2_idx = np.argmax(self.Q2[state]*self.p2_pas[state])
+        return self.actions_space[p1_idx][0], self.actions_space[p2_idx][0]
 
-                    # returns a number index where it is
-                    a1c = np.argmax(QwithProb1)
-                    a2c = np.argmax(QwithProb2)
+    def _update_q_tables(self, state, actions, rewards, next_state):
+        p1_action = lookup_vector_index(self.actions_space, actions)
+        p2_action = lookup_vector_index(self.actions_space, actions[::-1])
+        v1 = self.Q1[next_state]*self.p1_pas[next_state]
+        v2 = self.Q2[next_state]*self.p2_pas[next_state]
+        self.Q1[state, p1_action] = (1. - self.alpha) \
+            * self.Q1[state, p1_action] + \
+            self.alpha * ((1-self.gamma)
+                          * rewards[0] + self.gamma * v1.max())
+        self.Q2[state, p2_action] = (1. - self.alpha) \
+            * self.Q2[state, p2_action] + \
+            self.alpha * ((1-self.gamma) * rewards[1] + self.gamma * v2.max())
 
-                    a1 = A[a1c][0]
-                    a2 = A[a2c][0]
+    def _build_c(self, state):
+        qs = [self.Q1[state], self.Q2[state]]
+        return np.array([-q[x] for q in qs for x in range(25)])
 
-                a = [a1, a2]  # action matrix
-
-                # query transition model to obtain s', returns an index value
-                s_prime = transition(s, a)
-
-                # query the reward model to obtain r
-                r1 = self.rewards[s_prime, 0]
-                r2 = self.rewards[s_prime, 1]
-
-                anp = np.array(a)
-                for i in range(A.shape[0]):
-                    if np.array_equal(A[i], anp):
-                        aindex = i
-                        break
-                anp = np.array([a2, a1])
-                for j in range(A.shape[0]):
-                    if np.array_equal(A[j], anp):
-                        aindex = j
-                        break
-
-                v1 = self.Q1[s_prime]*pi1[s_prime]
-                v2 = self.Q2[s_prime]*pi2[s_prime]
-
-                self.Q1[s, i] = (1. - self.alpha) * self.Q1[s, i] + \
-                    self.alpha * ((1-self.gamma)
-                                  * r1 + self.gamma * v1.max())
-                self.Q2[s, j] = (1. - self.alpha) * self.Q2[s, j] + \
-                    self.alpha * ((1-self.gamma)
-                                  * r2 + self.gamma * v2.max())
-
-                # update s
-                s = s_prime
-                if self.e > .001:
-                    self.e = self.e - self.e_decayrate
-
-                # terminate when a goal is made
-                if r1 != 0 or r2 != 0:
-                    break
-
-            err.append(np.abs(self.Q1[s_test, 21] - q_sa))
-            print(T)
-        return err, self.Q1
-
-    def findMinQ(self, Q1, Q2):
-        c = matrix([
-            -Q1[0], -Q1[1], -Q1[2], -Q1[3], -Q1[4], -
-            Q1[5], -Q1[6], -Q1[7], -Q1[8], -Q1[9],
-            -Q1[10], -Q1[11], -Q1[12], -Q1[13], -Q1[14], -
-            Q1[15], -Q1[16], -Q1[17], -Q1[18], -Q1[19],
-            -Q1[20], -Q1[21], -Q1[22], -Q1[23], -Q1[24],
-
-            -Q2[0], -Q2[1], -Q2[2], -Q2[3], -Q2[4], -
-            Q2[5], -Q2[6], -Q2[7], -Q2[8], -Q2[9],
-            -Q2[10], -Q2[11], -Q2[12], -Q2[13], -Q2[14], -
-            Q2[15], -Q2[16], -Q2[17], -Q2[18], -Q2[19],
-            -Q2[20], -Q2[21], -Q2[22], -Q2[23], -Q2[24],
-        ])
-
-        G = matrix(np.identity(50) * -1)
-
-        h = matrix(
-            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-             0.0, 0.0, 0.0,
-             0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-             0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-             0.0, 0.0, 0.0, 0.0, 0.0])
-
-        A = matrix([
-            [1.], [1.], [1.], [1.], [1.], [1.], [1.], [1.], [1.], [1.],
-            [1.], [1.], [1.], [1.], [1.], [1.], [1.], [1.], [1.], [1.],
-            [1.], [1.], [1.], [1.], [1.],
-            [1.], [1.], [1.], [1.], [1.], [1.], [1.], [1.], [1.], [1.],
-            [1.], [1.], [1.], [1.], [1.], [1.], [1.], [1.], [1.], [1.],
-            [1.], [1.], [1.], [1.], [1.]
-        ])
-
+    def _get_min_q_val(self, state):
+        c = matrix(self._build_c(state))
+        G = matrix(np.negative(np.identity(50)))
+        h = matrix([0.,] * 50)
+        A = matrix([[1.] for x in range(50)])
         b = matrix([1.])
-        solvers.options['show_progress'] = False
-        sol = solvers.lp(c, G, h, A, b)
+        return self._solve_pas(c,G,h,A,b)
 
-        primeDist = [sol['x'][0], sol['x'][1], sol['x'][2], sol['x'][3],
-                     sol['x'][4], sol['x'][5], sol['x'][6], sol['x'][7],
-                     sol['x'][8], sol['x'][9],
-                     sol['x'][10], sol['x'][11], sol['x'][12], sol['x'][13],
-                     sol['x'][14], sol['x'][15], sol['x'][16],
-                     sol['x'][17], sol['x'][18], sol['x'][19],
-                     sol['x'][20], sol['x'][21], sol['x'][22], sol['x'][23],
-                     sol['x'][24],
-                     ]
-        return primeDist
+    def _solve_pas(self,c,G,h,A,b):
+        """Compute probablistic action space using LP."""
+        solvers.options['glpk'] = {'msg_lev': 'GLP_MSG_OFF'}  # cvxopt 1.1.8
+        sol = solvers.lp(c, G, h, A, b, solver='glpk')['x']
+        return [sol[x] for x in range(TOTAL_ACTIONS*TOTAL_ACTIONS)]
