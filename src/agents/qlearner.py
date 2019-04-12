@@ -91,14 +91,3 @@ class QLearner:
         self.e = self.e - self.e_decayrate
         if self.alpha > .001:
             self.alpha = self.alpha - self.alpha_decayrate
-
-    def _a_equals(self, a, b):
-        return np.array_equal(a, b)
-
-    def _find_space_index(self, space, actions):
-        update_ = None
-        for i in range(space.shape[0]):
-            if self._a_equals(space[i], np.array(actions)):
-                update_action = i
-                break
-        return update_action
