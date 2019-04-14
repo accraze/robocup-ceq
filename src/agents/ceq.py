@@ -25,8 +25,8 @@ class CEQ(QLearner):
         return self.err, self.Q1
 
     def _init_q_table(self):
-        """Init Q to zero over state and joint action spaces."""
-        return np.random.rand(TOTAL_STATES, TOTAL_ACTIONS * TOTAL_ACTIONS)
+        """Init to zero over state and joint action spaces."""
+        return np.zeros((TOTAL_STATES, TOTAL_ACTIONS * TOTAL_ACTIONS))
 
     def _init_pas_table(self):
         return np.ones((TOTAL_STATES, TOTAL_ACTIONS * TOTAL_ACTIONS))
@@ -80,7 +80,7 @@ class CEQ(QLearner):
 
     def _build_c(self, state):
         qs = [self.Q1[state], self.Q2[state]]
-        return np.array([-q[x] for q in qs for x in range(25)])
+        return np.array([-q[x] for q in qs for x in range(TOTAL_ACTIONS*TOTAL_ACTIONS)])
 
     def _get_min_q_val(self, state):
         c = matrix(self._build_c(state))
