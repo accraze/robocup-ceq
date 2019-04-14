@@ -5,11 +5,13 @@ import numpy as np
 from src.settings import EAST, FIELD_MAX, FIELD_MIN, NORTH, PUT, SOUTH, WEST
 from src.utils import lookup_vector_index
 
-# actions = [NORTH, SOUTH, EAST, WEST, PUT]
-# actions = [-4,4,1,-1,0]
-
 
 class Environment:
+
+    """
+    Builds states, actions and rewards spaces.
+    Also calls transition model for each step.
+    """
 
     actions = [NORTH, SOUTH, EAST, WEST, PUT]
 
