@@ -8,6 +8,12 @@ from .qlearner import QLearner
 
 class FoeQ(QLearner):
 
+    """
+    Actively tries to sabotage opponents.
+    Uses probabilistic action spaces to minimize
+    other player's rewards.
+    """
+
     def run(self):
         self.Q1 = self._init_q_table()
         self.Q2 = self._init_q_table()
@@ -27,7 +33,7 @@ class FoeQ(QLearner):
         return np.random.rand(TOTAL_STATES, TOTAL_ACTIONS, TOTAL_ACTIONS)
 
     def _init_pas_table(self):
-        return np.ones((TOTAL_STATES, TOTAL_ACTIONS))/TOTAL_ACTIONS 
+        return np.ones((TOTAL_STATES, TOTAL_ACTIONS))/TOTAL_ACTIONS
 
     def _run_simulation(self, episode_num, initial_state):
         print(episode_num)
@@ -51,7 +57,7 @@ class FoeQ(QLearner):
             p1_action = self.actions[np.random.randint(TOTAL_ACTIONS)]
             p2_action = self.actions[np.random.randint(TOTAL_ACTIONS)]
         else:
-            self._get_probablistic_actions(state) 
+            self._get_probablistic_actions(state)
             p1_action = np.argmax(self.p1_pas[state])
             p2_action = np.argmax(self.p2_pas[state])
         return [p1_action, p2_action]
@@ -59,7 +65,7 @@ class FoeQ(QLearner):
     def _get_probablistic_actions(self, state):
         """Compute action probabilities for given state."""
         self.p1_pas[state] = np.array(self.get_min_q_val(self.Q1[state]))
-        self.p2_pas[state] = np.array(self.get_min_q_val(self.Q2[state]))        
+        self.p2_pas[state] = np.array(self.get_min_q_val(self.Q2[state]))
 
     def _update_q_tables(self, state, actions, rewards, next_state):
         action_prob1 = self.p1_pas[next_state] * self.Q1[next_state]

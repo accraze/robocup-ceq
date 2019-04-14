@@ -8,6 +8,10 @@ from .qlearner import QLearner
 
 class FriendQ(QLearner):
 
+    """
+    Similar to base Qlearner, but uses joint action spaces.
+    """
+
     def run(self):
         self.Q1 = self._init_q_table(self.states, self.actions_space)
         self.Q2 = self._init_q_table(self.states, self.actions_space)
